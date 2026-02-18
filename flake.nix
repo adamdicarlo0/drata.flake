@@ -12,58 +12,110 @@
         pkgs = import nixpkgs { inherit system; };
 
         pname = "drata-agent";
-        version = "3.8.0";
+        version = "3.9.0";
       in
       {
-        packages.${pname} = with pkgs; stdenv.mkDerivation {
+        packages.${pname} = with pkgs; stdenv.mkDerivation rec {
           inherit pname version;
 
-          src = fetchurl {
-            url = "https://github.com/drata/agent-releases/releases/download/${version}/Drata-Agent-linux.deb";
-            hash = "sha256-PSTx991BV2HeijTXzXnmOA966syClbA82ionNOfJjVA=";
-          };
-
-          dontConfigure = true;
-          dontBuild = true;
+          src = if pkgs.stdenv.isDarwin then
+            fetchurl {
+              url = "https://github.com/drata/agent-releases/releases/download/${version}/Drata-Agent-mac.dmg";
+              hash = "sha256-GjElyxMjCXD6ruqrs0X/QyfUTH1MgIa2igieaYP6PtM=";
+            }
+          else 
+            fetchurl {
+              url = "https://github.com/drata/agent-releases/releases/download/${version}/Drata-Agent-linux.deb";
+              hash = "sha256-eNs+iHsUAkz1uxJ8zA84lSGlYsS6jKxYf+FaB2qiSiw=";
+            };
 
           nativeBuildInputs = [
-            dpkg
             makeWrapper
-            asar
+          ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+            undmg
+          ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+              autoPatchelfHook
+              dpkg
+            ];
+
+          buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            alsa-lib
+            at-spi2-atk
+            at-spi2-core
+            atk
+            cairo
+            cups
+            dbus
+            expat
+            fontconfig
+            freetype
+            gdk-pixbuf
+            glib
+            gsettings-desktop-schemas
+            gtk3
+            hicolor-icon-theme
+            libappindicator-gtk3
+            libdbusmenu
+            libdbusmenu-gtk3
+            libdrm
+            libnotify
+            libxkbcommon
+            mesa
+            nspr
+            nss
+            pango
+            systemd
+            xdg-utils
+            xorg.libX11
+            xorg.libXScrnSaver
+            xorg.libXcomposite
+            xorg.libXcursor
+            xorg.libXdamage
+            xorg.libXext
+            xorg.libXfixes
+            xorg.libXi
+            xorg.libXrandr
+            xorg.libXrender
+            xorg.libXtst
+            xorg.libxcb
+            xorg.libxshmfence
           ];
 
-          buildInputs = [
-            libappindicator-gtk3 # systray support
-          ];
+          sourceRoot = if pkgs.stdenv.isDarwin then "." else null;
 
-          preInstall = ''
-            asar extract opt/Drata\ Agent/resources/app.asar app
-            rm opt/Drata\ Agent/resources/app.asar
-            substituteInPlace app/dist/main.js \
-              --replace-fail "process.resourcesPath" "'$out/opt/Drata\ Agent/resources'"
-            asar pack app opt/Drata\ Agent/resources/app.asar
-            rm -rf app
+          unpackPhase = if pkgs.stdenv.isDarwin then ''
+            undmg $src
+          '' else ''
+              dpkg-deb -x $src .
           '';
 
-          installPhase = ''
-            runHook preInstall
+          installPhase = if pkgs.stdenv.isDarwin then ''
+            mkdir -p $out/Applications
+            cp -r "Drata Agent.app" $out/Applications/
 
-            mkdir -p "$out/bin"
-            cp -R opt "$out"
-            cp -R usr/share "$out/share"
-            
-            runHook postInstall
-          '';
+            mkdir -p $out/bin
+            makeWrapper "$out/Applications/Drata Agent.app/Contents/MacOS/Drata Agent" \
+              $out/bin/drata-agent
+          '' else ''
+            mkdir -p $out/bin
+            cp -r opt/Drata\ Agent $out/lib
+            cp -r usr/share $out/share || true
 
-          preFixup = lib.optionalString stdenv.hostPlatform.isLinux ''
-            makeWrapper ${lib.getExe electron} $out/bin/drata-agent \
-              --add-flags "$out/opt/Drata\ Agent/resources/app.asar" \
-              --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true}}" \
-              --inherit-argv0
+            makeWrapper "$out/lib/drata-agent" $out/bin/drata-agent \
+              --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath buildInputs}" \
+              --prefix PATH : "${pkgs.lib.makeBinPath [ pkgs.xdg-utils ]}" \
+              --set-default XDG_DATA_DIRS "${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS" \
+              --suffix XDG_DATA_DIRS : "$out/share" \
+              --suffix XDG_DATA_DIRS : "${pkgs.hicolor-icon-theme}/share"
+
+            if [ -f $out/share/applications/drata-agent.desktop ]; then
+              substituteInPlace $out/share/applications/drata-agent.desktop \
+                --replace "/opt/Drata Agent/drata-agent" "$out/bin/drata-agent"
+            fi
           '';
 
           meta = with pkgs.lib; {
-            description = "Lightweight tray application for compliance tracking";
+            description = "Lightweight tray application for compliance tracking (unofficial binary release)";
             homepage = "https://github.com/drata/drata-agent";
             license = licenses.asl20;
             platforms = [ "x86_64-linux" ];
