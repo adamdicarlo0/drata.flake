@@ -1,5 +1,5 @@
 {
-  description = "The Drata Agent is a lightweight tray application that runs in the background, reporting read-only data to Drata about it's machine's state for compliance tracking.";
+  description = "The Drata Agent is a lightweight tray application that runs in the background, reporting read-only data to Drata about the machine's state for compliance tracking.";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -11,6 +11,8 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
+        inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
+
         pname = "drata-agent";
         version = "3.9.0";
       in
@@ -18,7 +20,7 @@
         packages.${pname} = with pkgs; stdenv.mkDerivation rec {
           inherit pname version;
 
-          src = if pkgs.stdenv.isDarwin then
+          src = if isDarwin then
             fetchurl {
               url = "https://github.com/drata/agent-releases/releases/download/${version}/Drata-Agent-mac.dmg";
               hash = "sha256-GjElyxMjCXD6ruqrs0X/QyfUTH1MgIa2igieaYP6PtM=";
@@ -31,14 +33,14 @@
 
           nativeBuildInputs = [
             makeWrapper
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+          ] ++ pkgs.lib.optionals isDarwin [
             undmg
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+          ] ++ pkgs.lib.optionals isLinux [
               autoPatchelfHook
               dpkg
             ];
 
-          buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+          buildInputs = pkgs.lib.optionals isLinux [
             alsa-lib
             at-spi2-atk
             at-spi2-core
@@ -66,30 +68,30 @@
             pango
             systemd
             xdg-utils
-            xorg.libX11
-            xorg.libXScrnSaver
-            xorg.libXcomposite
-            xorg.libXcursor
-            xorg.libXdamage
-            xorg.libXext
-            xorg.libXfixes
-            xorg.libXi
-            xorg.libXrandr
-            xorg.libXrender
-            xorg.libXtst
-            xorg.libxcb
-            xorg.libxshmfence
+            libx11
+            libxscrnsaver
+            libxcomposite
+            libxcursor
+            libxdamage
+            libxext
+            libxfixes
+            libxi
+            libxrandr
+            libxrender
+            libxtst
+            libxcb
+            libxshmfence
           ];
 
-          sourceRoot = if pkgs.stdenv.isDarwin then "." else null;
+          sourceRoot = if isDarwin then "." else null;
 
-          unpackPhase = if pkgs.stdenv.isDarwin then ''
+          unpackPhase = if isDarwin then ''
             undmg $src
           '' else ''
               dpkg-deb -x $src .
           '';
 
-          installPhase = if pkgs.stdenv.isDarwin then ''
+          installPhase = if isDarwin then ''
             mkdir -p $out/Applications
             cp -r "Drata Agent.app" $out/Applications/
 
