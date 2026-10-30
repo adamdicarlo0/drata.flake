@@ -122,6 +122,7 @@
             license = licenses.asl20;
             platforms = [ "x86_64-linux" ];
             sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
+            mainProgram = "drata-agent";
           };
         };
 
