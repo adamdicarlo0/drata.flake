@@ -17,7 +17,7 @@
       inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
 
       pname = "drata-agent";
-      version = "3.9.0";
+      version = "3.9.1";
     in {
       packages.${pname} = with pkgs;
         stdenv.mkDerivation rec {
@@ -27,13 +27,13 @@
             if isDarwin
             then
               fetchurl {
-                url = "https://github.com/drata/agent-releases/releases/download/${version}/Drata-Agent-mac.dmg";
-                hash = "sha256-GjElyxMjCXD6ruqrs0X/QyfUTH1MgIa2igieaYP6PtM=";
+                url = "https://github.com/drata/drata-agent/releases/download/${version}/Drata-Agent-mac.dmg";
+                hash = "";
               }
             else
               fetchurl {
-                url = "https://github.com/drata/agent-releases/releases/download/${version}/Drata-Agent-linux.deb";
-                hash = "sha256-eNs+iHsUAkz1uxJ8zA84lSGlYsS6jKxYf+FaB2qiSiw=";
+                url = "https://github.com/drata/drata-agent/releases/download/${version}/Drata-Agent-linux.deb";
+                hash = "sha256-LNT26ZGr+YBXn1Sf2VlrO4gVH81kjZh1Xx6tEsucGo8=";
               };
 
           nativeBuildInputs =
